@@ -42,6 +42,19 @@ unC (MkC a) = a
 instance Functor (C a) where
   fmap _ (MkC a) = MkC a
 
+newtype CL a b = MkCL [a]
+
+unCL :: CL a b -> [a]
+unCL (MkCL as) = as
+
+instance Functor (CL a) where
+  fmap _ (MkCL as) = MkCL as
+
+instance Applicative (CL a) where
+  pure _ = MkCL []
+  (MkCL as) <*> (MkCL bs) = MkCL (as ++ bs)  
+
+
 type Lens a b = forall t. Functor t => (b -> t b) -> (a -> t a)
 
 mkLens :: (a -> b) -> (b -> a -> a) -> Lens a b
@@ -58,6 +71,9 @@ set l b = over l (const b)
 over :: Traversal a b -> (b -> b) -> (a -> a)
 over l f = unI . l (MkI . f)
 
+listOf :: Traversal a b -> a -> [b]
+listOf l = unCL . l (\b -> MkCL [b])
+
 -----------------------
 
 point :: Lens Atom Point
@@ -71,6 +87,14 @@ x = mkLens _x setX
 
 y :: Lens Point Double
 y = mkLens _y setY
+
+this :: Traversal (Maybe a) a
+this f Nothing  = pure Nothing
+this f (Just x) = Just <$> f x
+
+elems :: Traversal [a] a
+elems f []     = pure []
+elems f (x:xs) = (:) <$> f x <*> elems f xs
 
 -----------------------
 
@@ -91,8 +115,12 @@ askX = (point . x) askUser
 
 main :: IO ()
 main = do
-  let a = Atom "abc" (Point 1 2)
-  a' <- askX a
-  print a'
+  let a = listOf elems [1,2,3]
+  print a
+
+
+  -- let a = Atom "abc" (Point 1 2)
+  -- a' <- askX a
+  -- print a'
 
 -- setAtomX' 2 (Atom "abc" (Point 1 2))
